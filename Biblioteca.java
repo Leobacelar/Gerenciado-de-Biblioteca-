@@ -47,6 +47,24 @@ public class Biblioteca {
         return u;
     }
 
+    public Usuario cadastrarUsuario(String nome, String email, String senha, boolean admin) {
+        if (nome.isBlank() || email.isBlank() || senha.isBlank())
+            throw new BibliotecaException("Nome, e-mail e senha são obrigatórios.");
+        boolean emailExiste = usuarios.values().stream()
+                .anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
+        if (emailExiste)
+            throw new BibliotecaException("Já existe um usuário cadastrado com este e-mail.");
+        Usuario u = new Usuario(proxUsuario++, nome, email, senha, admin);
+        usuarios.put(u.getId(), u);
+        return u;
+    }
+
+    public Usuario autenticar(String email, String senha) {
+        return usuarios.values().stream()
+                .filter(u -> u.getEmail().equalsIgnoreCase(email) && u.validarSenha(senha))
+                .findFirst()
+                .orElseThrow(() -> new BibliotecaException("E-mail ou senha inválidos."));
+    }
     public List<Usuario> listarUsuarios() { return new ArrayList<>(usuarios.values()); }
 
     public Usuario getUsuario(int id) {
