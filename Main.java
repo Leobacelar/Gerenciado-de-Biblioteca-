@@ -38,7 +38,7 @@ public class Main {
         System.out.println("6  Emprestar livro        7  Devolver livro      8  Renovar empréstimo");
         System.out.println("9  Empréstimos ativos     10 Empréstimos atrasados");
         System.out.println("11 Agendar livro          12 Agendamentos ativos 13 Cancelar agendamento");
-        System.out.println("14 Pagar multa            0  Sair");
+        System.out.println("14 Pagar multa            15 Simular usuários     0  Sair");
     }
 
     private static void executar(int op) {
@@ -81,47 +81,4 @@ public class Main {
             }
             case 12 -> imprimir(bib.agendamentosAtivos());
             case 13 -> { bib.cancelarAgendamento(lerInt("ID do agendamento: ")); System.out.println("✔ Agendamento cancelado."); }
-            case 14 -> System.out.printf("✔ Multa de R$ %.2f quitada.%n", bib.pagarMulta(lerInt("ID do usuário: ")));
-            case 0 -> { }
-            default -> System.out.println("Opção inválida.");
-        }
-    }
-
-    private static <T> void imprimir(List<T> itens) {
-        if (itens.isEmpty()) System.out.println("(nenhum registro)");
-        itens.forEach(System.out::println);
-    }
-
-    private static String lerTexto(String msg) {
-        System.out.print(msg);
-        return in.hasNextLine() ? in.nextLine().trim() : "";
-    }
-
-    private static int lerInt(String msg) {
-        while (true) {
-            String s = lerTexto(msg);
-            try { return Integer.parseInt(s); }
-            catch (NumberFormatException e) { System.out.println("Digite um número válido."); }
-            if (!in.hasNextLine()) return 0;
-        }
-    }
-
-    private static LocalDate lerData(String msg) {
-        while (true) {
-            String s = lerTexto(msg);
-            if (s.isEmpty() && msg.contains("vazio")) return LocalDate.now();
-            try { return LocalDate.parse(s, FMT); }
-            catch (DateTimeParseException e) { System.out.println("Data inválida. Use dd/MM/aaaa."); }
-            if (!in.hasNextLine()) return LocalDate.now();
-        }
-    }
-
-    private static void carregarDadosExemplo() {
-        bib.cadastrarLivro("Dom Casmurro", "Machado de Assis", "Romance", 1899, 2);
-        bib.cadastrarLivro("O Cortiço", "Aluísio Azevedo", "Romance", 1890, 1);
-        bib.cadastrarLivro("Capitães da Areia", "Jorge Amado", "Romance", 1937, 3);
-        bib.cadastrarLivro("Clean Code", "Robert C. Martin", "Tecnologia", 2008, 2);
-        bib.cadastrarUsuario("Ana Souza", "ana@email.com");
-        bib.cadastrarUsuario("Carlos Lima", "carlos@email.com");
-    }
-}
+            case 14 ->
