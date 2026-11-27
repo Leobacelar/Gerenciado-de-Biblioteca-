@@ -2,6 +2,7 @@ package biblioteca;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -35,7 +36,8 @@ public class Simulador {
             String email = emailBase + "@" + DOMINIOS[random.nextInt(DOMINIOS.length)];
 
             try {
-                Usuario u = bib.cadastrarUsuario(nome, email);
+                // Construtor completo: recusa e-mail repetido
+                Usuario u = bib.cadastrarUsuario(nome, email, "1234", false);
                 usuariosCriados++;
                 System.out.println("[+] Usuário gerado: " + u.getNome() + " (" + u.getEmail() + ")");
             } catch (BibliotecaException e) {
@@ -59,7 +61,7 @@ public class Simulador {
         for (int i = 1; i <= qtdAcoes; i++) {
             Usuario u = usuarios.get(random.nextInt(usuarios.size()));
             Livro l = livros.get(random.nextInt(livros.size()));
-            int acao = random.nextInt(5); // 0=Emprestar, 1=Devolver, 2=Renovar, 3=Agendar, 4=Pagar Multa
+            int acao = random.nextInt(6); // 0=Emprestar, 1=Devolver, 2=Renovar, 3=Agendar, 4=Pagar Multa, 5=Comprar
 
             try {
                 switch (acao) {
@@ -101,6 +103,17 @@ public class Simulador {
                                 i, u.getNome(), pago);
                         sucessos++;
                     }
+                    case 5 -> { // Comprar de 1 a 3 livros
+                        List<Integer> ids = new ArrayList<>();
+                        int quantidade = 1 + random.nextInt(3);
+                        for (int j = 0; j < quantidade; j++) {
+                            ids.add(livros.get(random.nextInt(livros.size())).getId());
+                        }
+                        Compra c = bib.comprar(u.getId(), ids, LocalDate.now());
+                        System.out.printf("(%d) Compra: %s comprou %d livro(s) por R$ %.2f%n",
+                                i, u.getNome(), ids.size(), c.getTotal());
+                        sucessos++;
+                    }
                 }
             } catch (BibliotecaException e) {
                 // Regras da biblioteca funcionando (ex: limite de 3 livros, usuário com multa, sem cópias)
@@ -113,5 +126,6 @@ public class Simulador {
         System.out.println("Novos usuários cadastrados: " + usuariosCriados);
         System.out.println("Operações concluídas com sucesso: " + sucessos);
         System.out.println("Operações barradas pelas regras da biblioteca: " + bloqueiosRegra);
+        System.out.printf("Saldo do caixa: R$ %.2f%n", bib.getFinanceiro().saldoCaixa());
     }
 }

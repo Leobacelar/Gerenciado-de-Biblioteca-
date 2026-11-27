@@ -3,6 +3,7 @@ package biblioteca;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +17,9 @@ public class Biblioteca {
     private final Map<Integer, Usuario> usuarios = new LinkedHashMap<>();
     private final Map<Integer, Emprestimo> emprestimos = new LinkedHashMap<>();
     private final Map<Integer, Agendamento> agendamentos = new LinkedHashMap<>();
-    private int proxLivro = 1, proxUsuario = 1, proxEmprestimo = 1, proxAgendamento = 1;
+    private final Map<Integer, Compra> compras = new LinkedHashMap<>();
+    private final Financeiro financeiro = new Financeiro();
+    private int proxLivro = 1, proxUsuario = 1, proxEmprestimo = 1, proxAgendamento = 1, proxCompra = 1;
 
   
     public Livro cadastrarLivro(String titulo, String autor, String genero, int ano, int copias) {
@@ -81,8 +84,9 @@ public class Biblioteca {
         if (usuario.temMulta())
             throw new BibliotecaException(String.format(
                     "Usuário possui multa pendente de R$ %.2f. Quite antes de pegar novos livros.", usuario.getMultaPendente()));
-        if (emprestimosAtivosDe(usuario).size() >= MAX_EMPRESTIMOS_POR_USUARIO)
-            throw new BibliotecaException("Limite de " + MAX_EMPRESTIMOS_POR_USUARIO + " empréstimos simultâneos atingido.");
+        int limite = usuario.getNivel().getLimiteEmprestimos();
+        if (emprestimosAtivosDe(usuario).size() >= limite)
+            throw new BibliotecaException("Limite de " + limite + " empréstimos simultâneos atingido.");
         if (emprestimosAtivosDe(usuario).stream().anyMatch(e -> e.getLivro().equals(livro)))
             throw new BibliotecaException("O usuário já está com um exemplar deste livro.");
 
@@ -134,6 +138,8 @@ public class Biblioteca {
         return e;
     }
 
+    public List<Emprestimo> listarEmprestimos() { return new ArrayList<>(emprestimos.values()); }
+
     public List<Emprestimo> emprestimosAtivos() {
         return emprestimos.values().stream().filter(Emprestimo::estaAtivo).collect(Collectors.toList());
     }
@@ -180,7 +186,72 @@ public class Biblioteca {
         Usuario u = getUsuario(usuarioId);
         if (!u.temMulta()) throw new BibliotecaException("Este usuário não tem multas pendentes.");
         BigDecimal valor = u.getMultaPendente();
+        financeiro.registrarPagamentoMulta(u, valor, LocalDate.now());
         u.quitarMulta();
         return valor;
+    }
+
+    public Financeiro getFinanceiro() { return financeiro; }
+
+    // Define o preço de venda e acrescenta exemplares. Se houver custo, lança a saída no caixa.
+    public void abastecerVenda(int livroId, BigDecimal preco, int quantidade, BigDecimal custoUnitario, LocalDate data) {
+        Livro livro = getLivro(livroId);
+        if (preco == null || preco.signum() <= 0) throw new BibliotecaException("O preço de venda deve ser maior que zero.");
+        if (quantidade < 0) throw new BibliotecaException("A quantidade não pode ser negativa.");
+        if (custoUnitario == null || custoUnitario.signum() < 0)
+            throw new BibliotecaException("O custo unitário não pode ser negativo.");
+
+        BigDecimal custoTotal = custoUnitario.multiply(BigDecimal.valueOf(quantidade));
+        if (custoTotal.signum() > 0) {
+            financeiro.registrar(MovimentacaoFinanceira.Tipo.SAIDA, "Estoque",
+                    String.format("Reposição de %d un. de %s", quantidade, livro.getTitulo()), custoTotal, data);
+        }
+        livro.abastecerVenda(preco, quantidade);
+    }
+
+    // Calcula a compra sem efetivar (para o usuário conferir o total antes de confirmar)
+    public Compra orcarCompra(int usuarioId, List<Integer> livroIds, LocalDate data) {
+        Usuario usuario = getUsuario(usuarioId);
+        if (livroIds.isEmpty()) throw new BibliotecaException("Informe pelo menos um livro para comprar.");
+
+        List<Livro> itens = new ArrayList<>();
+        Map<Livro, Integer> quantidades = new HashMap<>();
+        for (int livroId : livroIds) {
+            Livro livro = getLivro(livroId);
+            int quantidade = quantidades.getOrDefault(livro, 0) + 1;
+            if (!livro.estaAVenda() || quantidade > livro.getEstoqueVenda())
+                throw new BibliotecaException("Sem estoque para venda: " + livro.getTitulo() + ".");
+            quantidades.put(livro, quantidade);
+            itens.add(livro);
+        }
+        return new Compra(proxCompra, usuario, itens, data);
+    }
+
+    public Compra comprar(int usuarioId, List<Integer> livroIds, LocalDate data) {
+        // orcarCompra valida tudo antes de alterar qualquer dado
+        Compra compra = orcarCompra(usuarioId, livroIds, data);
+        // O caixa não aceita lançamento de valor zero (descontos podem zerar a compra)
+        if (compra.getTotal().signum() > 0) {
+            financeiro.registrar(MovimentacaoFinanceira.Tipo.ENTRADA, "Venda",
+                    String.format("Compra %d - %s", compra.getId(), compra.getUsuario().getNome()),
+                    compra.getTotal(), data);
+        }
+        for (Livro livro : compra.getLivros()) {
+            livro.venderExemplar();
+        }
+        compra.getUsuario().registrarCompra(compra.getLivros().size());
+        compras.put(compra.getId(), compra);
+        proxCompra++;
+        return compra;
+    }
+
+    public List<Compra> listarCompras() { return new ArrayList<>(compras.values()); }
+
+    public List<Compra> comprasDe(Usuario u) {
+        List<Compra> doUsuario = new ArrayList<>();
+        for (Compra c : compras.values()) {
+            if (c.getUsuario().equals(u)) doUsuario.add(c);
+        }
+        return doUsuario;
     }
 }

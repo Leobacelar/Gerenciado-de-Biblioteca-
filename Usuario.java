@@ -9,6 +9,7 @@ public class Usuario {
     private final String senha;
     private final boolean admin;
     private BigDecimal multaPendente = BigDecimal.ZERO;
+    private int livrosComprados = 0;
 
     // Construtor padrão (mantém compatibilidade com o simulador e o resto do grupo)
     public Usuario(int id, String nome, String email) {
@@ -33,6 +34,10 @@ public class Usuario {
 
     void adicionarMulta(BigDecimal valor) { multaPendente = multaPendente.add(valor); }
     void quitarMulta() { multaPendente = BigDecimal.ZERO; }
+
+    public int getLivrosComprados() { return livrosComprados; }
+    public NivelFidelidade getNivel() { return NivelFidelidade.porLivrosComprados(livrosComprados); }
+    void registrarCompra(int quantidade) { livrosComprados += quantidade; }
 
     public boolean temMulta() { return multaPendente.signum() > 0; }
 
